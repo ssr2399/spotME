@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Navigation, Map as MapIcon, Sparkles } from 'lucide-react';
+import { ArrowRight, Navigation, Map as MapIcon, Sparkles, ExternalLink } from 'lucide-react';
 import { getAIAdvice } from '@/lib/gemini';
+import { logAnalyticsEvent } from '@/lib/firebase';
+import { PredictiveNavigationProps } from '@/types';
 
 type DestinationKey = 'exit' | 'restroom' | 'entrance' | 'food';
 
@@ -42,21 +44,45 @@ const DESTINATIONS = {
   }
 };
 
-export function PredictiveNavigation({ density }: { density: number }) {
+export function PredictiveNavigation({ density }: PredictiveNavigationProps) {
   const [aiTip, setAiTip] = useState<string>("Analyzing optimal routes...");
   const [activeDest, setActiveDest] = useState<DestinationKey>('exit');
 
+  const currentDest = useMemo(() => DESTINATIONS[activeDest], [activeDest]);
+  
+  // 2. Google Maps URLs Integration
+  // Generates an official cross-platform link to open the native Google Maps app for walking directions
+  const googleMapsDirUrl = useMemo(() => `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(currentDest.label + ', Moscone Center, San Francisco')}&travelmode=walking`, [currentDest.label]);
+
   useEffect(() => {
     let mounted = true;
-    const fetchTip = async () => {
-      const tip = await getAIAdvice(density);
-      if (mounted) setAiTip(tip);
-    };
-    fetchTip();
-    return () => { mounted = false; };
-  }, [density]);
+    
+    // Add 2 second debounce before calling AI Tip
+    const timerId = setTimeout(() => {
+      const fetchTip = async () => {
+        setAiTip("Analyzing optimal routes...");
+        const tip = await getAIAdvice(density, currentDest.label);
+        if (mounted) setAiTip(tip);
+      };
+      fetchTip();
+    }, 2000);
 
-  const currentDest = DESTINATIONS[activeDest];
+    return () => { 
+      mounted = false; 
+      clearTimeout(timerId);
+    };
+  }, [density, currentDest.label]);
+
+  const handleDestClick = (dest: DestinationKey) => {
+    setActiveDest(dest);
+    
+    // Log telemetry data safely
+    logAnalyticsEvent('select_destination', {
+      destination_name: DESTINATIONS[dest].label,
+      current_density: density,
+      timestamp: new Date().toISOString()
+    });
+  };
 
   return (
     <Card className="bg-zinc-900 border-zinc-800 flex flex-col overflow-hidden" role="region" aria-label="Predictive Navigation">
@@ -98,22 +124,28 @@ export function PredictiveNavigation({ density }: { density: number }) {
             <circle cx="250" cy="150" r="8" fill={currentDest.stroke} className={`transition-colors duration-500 ${activeDest === 'entrance' ? 'opacity-100' : 'opacity-0'}`} />
           </svg>
           
-          <style>{`
-            @keyframes dash {
-              to {
-                stroke-dashoffset: -12;
-              }
-            }
-          `}</style>
-          
           <div className="absolute bottom-2 left-2 bg-zinc-900/80 backdrop-blur px-2 py-1 rounded-md border border-zinc-700 flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full bg-blue-400" aria-hidden="true"></div>
             <span className="text-[10px] font-medium text-zinc-200">You</span>
           </div>
           
-          <div className={`absolute top-2 right-2 ${currentDest.bgColor} backdrop-blur px-2 py-1 rounded-md border ${currentDest.borderColor} flex items-center gap-1.5 transition-colors duration-500`}>
-            <MapIcon className={`w-2 h-2 ${currentDest.color}`} aria-hidden="true" />
-            <span className={`text-[10px] font-medium ${currentDest.color}`}>{currentDest.label}</span>
+          <div className="absolute top-2 right-2 flex flex-col items-end gap-2">
+            <div className={`${currentDest.bgColor} backdrop-blur px-2 py-1 rounded-md border ${currentDest.borderColor} flex items-center gap-1.5 transition-colors duration-500`}>
+              <MapIcon className={`w-2 h-2 ${currentDest.color}`} aria-hidden="true" />
+              <span className={`text-[10px] font-medium ${currentDest.color}`}>{currentDest.label}</span>
+            </div>
+            
+            {/* Google Maps External Link */}
+            <a 
+              href={googleMapsDirUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-[10px] font-medium bg-blue-600 hover:bg-blue-500 text-white px-2 py-1.5 rounded-md transition-colors shadow-sm"
+              aria-label={`Get walking directions to ${currentDest.label} in Google Maps`}
+            >
+              <ExternalLink className="w-3 h-3" />
+              Open in Maps
+            </a>
           </div>
         </div>
 
@@ -121,7 +153,7 @@ export function PredictiveNavigation({ density }: { density: number }) {
         <div className="grid grid-cols-2 grid-rows-2 gap-2 h-24 shrink-0">
           <Button 
             variant="secondary" 
-            onClick={() => setActiveDest('exit')}
+            onClick={() => handleDestClick('exit')}
             className={`h-full flex items-center justify-start gap-2 px-3 transition-colors ${activeDest === 'exit' ? 'bg-zinc-700 border-emerald-500/50' : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700/50'} text-zinc-100 border`} 
             aria-label="Navigate to Nearest Exit"
             aria-pressed={activeDest === 'exit'}
@@ -131,7 +163,7 @@ export function PredictiveNavigation({ density }: { density: number }) {
           </Button>
           <Button 
             variant="secondary" 
-            onClick={() => setActiveDest('restroom')}
+            onClick={() => handleDestClick('restroom')}
             className={`h-full flex items-center justify-start gap-2 px-3 transition-colors ${activeDest === 'restroom' ? 'bg-zinc-700 border-blue-500/50' : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700/50'} text-zinc-100 border`} 
             aria-label="Navigate to Restrooms"
             aria-pressed={activeDest === 'restroom'}
@@ -141,7 +173,7 @@ export function PredictiveNavigation({ density }: { density: number }) {
           </Button>
           <Button 
             variant="secondary" 
-            onClick={() => setActiveDest('entrance')}
+            onClick={() => handleDestClick('entrance')}
             className={`h-full flex items-center justify-start gap-2 px-3 transition-colors ${activeDest === 'entrance' ? 'bg-zinc-700 border-amber-500/50' : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700/50'} text-zinc-100 border`} 
             aria-label="Navigate to Entrance"
             aria-pressed={activeDest === 'entrance'}
@@ -151,7 +183,7 @@ export function PredictiveNavigation({ density }: { density: number }) {
           </Button>
           <Button 
             variant="secondary" 
-            onClick={() => setActiveDest('food')}
+            onClick={() => handleDestClick('food')}
             className={`h-full flex items-center justify-start gap-2 px-3 transition-colors ${activeDest === 'food' ? 'bg-zinc-700 border-purple-500/50' : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700/50'} text-zinc-100 border`} 
             aria-label="Navigate to Food and Drink"
             aria-pressed={activeDest === 'food'}

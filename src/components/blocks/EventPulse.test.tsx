@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { EventPulse } from './EventPulse';
 
@@ -18,17 +18,19 @@ describe('EventPulse Component', () => {
     vi.useRealTimers();
   });
 
-  it('renders the next event name and time to finish', () => {
+  it('renders the next event name and time to finish', async () => {
     const futureTime = new Date(Date.now() + 3600000).toISOString(); // 1 hour from now
     const endTime = new Date(Date.now() + 7200000).toISOString(); // 2 hours from now
 
-    render(
-      <EventPulse 
-        nextEvent="Keynote Speech" 
-        nextEventTime={futureTime} 
-        endTime={endTime} 
-      />
-    );
+    await act(async () => {
+      render(
+        <EventPulse 
+          nextEvent="Keynote Speech" 
+          nextEventTime={futureTime} 
+          endTime={endTime} 
+        />
+      );
+    });
 
     // Check if the event name is displayed
     expect(screen.getByText('Next: Keynote Speech')).toBeInTheDocument();
@@ -36,4 +38,23 @@ describe('EventPulse Component', () => {
     // Check if the Time to Finish label is displayed
     expect(screen.getByText('Time to Finish')).toBeInTheDocument();
   });
+  it('renders Google Calendar save link with security attributes', async () => {
+    const future = new Date(Date.now() + 3600000).toISOString();
+    const end = new Date(Date.now() + 7200000).toISOString();
+    await act(async () => {
+      render(<EventPulse nextEvent="Halftime" nextEventTime={future} endTime={end} />);
+    });
+    const link = screen.getByLabelText('Save to Google Calendar');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
+  it('renders accessible timer regions', async () => {
+    const future = new Date(Date.now() + 3600000).toISOString();
+    const end = new Date(Date.now() + 7200000).toISOString();
+    await act(async () => {
+      render(<EventPulse nextEvent="Kickoff" nextEventTime={future} endTime={end} />);
+    });
+    expect(screen.getByRole('timer', { name: /Time until/ })).toBeInTheDocument();
+  });
+
 });

@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Clock, CalendarPlus, CloudSun } from 'lucide-react';
 import { formatTime } from '@/utils/time';
+import { EventPulseProps } from '@/types';
 
-export function EventPulse({ nextEvent, nextEventTime, endTime }: { nextEvent: string, nextEventTime: string, endTime: string }) {
+export function EventPulse({ nextEvent, nextEventTime, endTime }: EventPulseProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [temperature, setTemperature] = useState<string | null>(null);
 
@@ -64,14 +65,14 @@ export function EventPulse({ nextEvent, nextEventTime, endTime }: { nextEvent: s
         
         <div className="bg-zinc-950/50 p-3 rounded-xl border border-zinc-800/50 flex flex-col items-center justify-center" role="timer" aria-label={`Time until ${nextEvent}`}>
           <span className="text-sm font-medium text-zinc-400 uppercase tracking-wider mb-1">Next: {nextEvent}</span>
-          <span className="text-4xl font-mono font-bold text-amber-400 tracking-tight" aria-live="off">
+          <span className="text-4xl font-mono font-bold text-amber-400 tracking-tight">
             {formatTime(timeToNext)}
           </span>
         </div>
 
         <div className="bg-zinc-950/50 p-3 rounded-xl border border-zinc-800/50 flex flex-col items-center justify-center" role="timer" aria-label="Time to finish">
           <span className="text-sm font-medium text-zinc-400 uppercase tracking-wider mb-1">Time to Finish</span>
-          <span className="text-3xl font-mono font-bold text-zinc-300 tracking-tight" aria-live="off">
+          <span className="text-3xl font-mono font-bold text-zinc-300 tracking-tight">
             {formatTime(timeToEnd)}
           </span>
         </div>

@@ -1,9 +1,10 @@
+import { memo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ShieldAlert, Phone, EarOff, MessageSquareWarning } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-export function SafetyHub() {
+export const SafetyHub = memo(function SafetyHub() {
   return (
     <Card className="bg-zinc-900 border-zinc-800 flex flex-col overflow-hidden" role="region" aria-label="Safety and Support">
       <CardHeader className="pb-2 pt-4 px-4">
@@ -45,4 +46,4 @@ export function SafetyHub() {
       </CardContent>
     </Card>
   );
-}
+});
